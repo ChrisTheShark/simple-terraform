@@ -2,11 +2,33 @@ provider "aws" {
   region = "us-east-1"
 }
 
-data "aws_availability_zones" "all" {}
+terraform {
+  backend "s3" {
+    bucket = "chrisd-terraform-state"
+    key    = "state/services/webserver-cluster/terraform.tfstate"
+    region = "us-east-1"
+    workspace_key_prefix = "stage"
+  }
+}
 
-variable "server_port" {
-  description = "The port the server will use for HTTP requests"
-  default = 8080
+data "aws_availability_zones" "all" {}
+data "terraform_remote_state" "db" {
+  backend = "s3"
+
+  config {
+    bucket = "chrisd-terraform-state"
+    key    = "state/services/data-stores/mysql/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+data "template_file" "user_data" {
+  template = "${file("user-data.sh")}"
+
+  vars {
+    server_port = "${var.server_port}"
+    db_address  = "${data.terraform_remote_state.db.db_address}"
+    db_port     = "${data.terraform_remote_state.db.db_port}"
+  }
 }
 
 resource "aws_launch_configuration" "example" {
@@ -14,11 +36,7 @@ resource "aws_launch_configuration" "example" {
   instance_type        = "t2.micro"
   security_groups      = ["${aws_security_group.example.id}"]
 
-  user_data = <<-EOF
-    #!/bin/bash
-    echo "Hello World!!" > index.html
-    nohup busybox httpd -f -p "${var.server_port}" &
-    EOF
+  user_data = "${data.template_file.user_data.rendered}"
 
   lifecycle {
     create_before_destroy = true
@@ -93,8 +111,4 @@ resource "aws_security_group" "elb" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-}
-
-output "public_ip" {
-  value = "${aws_elb.example.dns_name}"
 }
