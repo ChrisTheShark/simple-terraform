@@ -10,8 +10,13 @@ terraform {
   }
 }
 
+resource "aws_iam_user" "stage_users" {
+  count = "${length(var.user_names)}"
+  name  = "${element(var.user_names, count.index)}"
+}
+
 module "webserver_cluster" {
-  source = "../../../modules/services/webserver-cluster"
+  source = "../../../../modules/services/webserver-cluster"
 
   cluster_name           = "webservers-stage"
   instance_type          = "t2.micro"

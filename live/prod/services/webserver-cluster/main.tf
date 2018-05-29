@@ -11,7 +11,7 @@ terraform {
 }
 
 module "webserver_cluster" {
-  source = "../../../modules/services/webserver-cluster"
+  source = "../../../../modules/services/webserver-cluster"
 
   cluster_name           = "webservers-prod"
   instance_type          = "t2.micro" // free tier eligible, prod could use m4.large or something else
